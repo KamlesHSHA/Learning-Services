@@ -15,4 +15,12 @@
     <None Include="src\learnova.LearningService\learnova.LearningService.csproj" />
   </ItemGroup>
 
+  <!-- Exclude source files under src/learnova.* projects so they are compiled by their own project files only -->
+  <ItemGroup>
+    <Compile Remove="src\**\*.cs" />
+    <EmbeddedResource Remove="src\**\*" />
+    <None Remove="src\**\*" />
+    <Content Remove="src\**\*" />
+  </ItemGroup>
+
 </Project>
