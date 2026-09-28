@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -21,6 +21,9 @@
     <EmbeddedResource Remove="src\**\*" />
     <None Remove="src\**\*" />
     <Content Remove="src\**\*" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Mapper files removed from root project; they are compiled by Persistence project csproj -->
   </ItemGroup>
 
 </Project>

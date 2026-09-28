@@ -14,79 +14,84 @@ namespace learnova.LearningService.Persistence.Repositories
     public class UnitRepository : IUnitRepository
     {
         private readonly Container _container;
+        private readonly Microsoft.Extensions.Logging.ILogger<UnitRepository> _logger;
 
-        public UnitRepository(CosmosClient client, string databaseName)
+        public UnitRepository(CosmosClient client, string databaseName, Microsoft.Extensions.Logging.ILogger<UnitRepository> logger)
         {
             _container = client.GetContainer(databaseName, CosmosContainerNames.Units);
+            _logger = logger;
         }
 
         public async Task AddAsync(Unit unit, CancellationToken cancellationToken = default)
         {
-            var doc = new UnitDocument
+            var doc = UnitMapper.MapToDocument(unit);
+            try
             {
-                id = unit.Id.ToString(),
-                SubjectId = unit.SubjectId.ToString(),
-                Title = unit.Title,
-                Description = unit.Description,
-                DisplayOrder = unit.DisplayOrder,
-                IsActive = unit.IsActive
-            };
-
-            await _container.CreateItemAsync(doc, new PartitionKey(doc.SubjectId), cancellationToken: cancellationToken);
+                _logger.LogDebug("Creating unit {UnitId}", unit.Id);
+                await _container.CreateItemAsync(doc, new PartitionKey(doc.SubjectId), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to create unit {UnitId}", unit.Id);
+                throw new InvalidOperationException("Failed to create unit.", ex);
+            }
         }
 
         public async Task<Unit?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
-            var it = _container.GetItemQueryIterator<UnitDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
-            while (it.HasMoreResults)
+            try
             {
-                var r = await it.ReadNextAsync(cancellationToken);
-                var doc = r.Resource.FirstOrDefault();
-                if (doc != null) return MapToDomain(doc);
+                var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
+                var it = _container.GetItemQueryIterator<UnitDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
+                while (it.HasMoreResults)
+                {
+                    var r = await it.ReadNextAsync(cancellationToken);
+                    var doc = r.Resource.FirstOrDefault();
+                    if (doc != null) return UnitMapper.MapToDomain(doc);
+                }
+                return null;
             }
-            return null;
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to get unit {UnitId}", id);
+                throw new InvalidOperationException("Failed to get unit.", ex);
+            }
         }
 
         public async Task<IEnumerable<Unit>> GetBySubjectIdAsync(Guid subjectId, CancellationToken cancellationToken = default)
         {
-            var pk = new PartitionKey(subjectId.ToString());
-            var query = _container.GetItemQueryIterator<UnitDocument>(new QueryDefinition("SELECT * FROM c"), requestOptions: new QueryRequestOptions { PartitionKey = pk });
-            var results = new List<UnitDocument>();
-            while (query.HasMoreResults)
+            try
             {
-                var r = await query.ReadNextAsync(cancellationToken);
-                results.AddRange(r.Resource);
+                var pk = new PartitionKey(subjectId.ToString());
+                var query = _container.GetItemQueryIterator<UnitDocument>(new QueryDefinition("SELECT * FROM c"), requestOptions: new QueryRequestOptions { PartitionKey = pk });
+                var results = new List<UnitDocument>();
+                while (query.HasMoreResults)
+                {
+                    var r = await query.ReadNextAsync(cancellationToken);
+                    results.AddRange(r.Resource);
+                }
+                return results.Select(UnitMapper.MapToDomain);
             }
-            return results.Select(MapToDomain);
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to query units for subject {SubjectId}", subjectId);
+                throw new InvalidOperationException("Failed to query units.", ex);
+            }
         }
 
         public async Task UpdateAsync(Unit unit, CancellationToken cancellationToken = default)
         {
-            var doc = new UnitDocument
+            var doc = UnitMapper.MapToDocument(unit);
+            try
             {
-                id = unit.Id.ToString(),
-                SubjectId = unit.SubjectId.ToString(),
-                Title = unit.Title,
-                Description = unit.Description,
-                DisplayOrder = unit.DisplayOrder,
-                IsActive = unit.IsActive
-            };
-
-            await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.SubjectId), cancellationToken: cancellationToken);
-        }
-
-        private static Unit MapToDomain(UnitDocument d)
-        {
-            var unit = (Unit)Activator.CreateInstance(typeof(Unit), true)!;
-            var t = typeof(Unit);
-            t.GetProperty("Id")!.SetValue(unit, Guid.Parse(d.id));
-            t.GetProperty("SubjectId")!.SetValue(unit, Guid.Parse(d.SubjectId));
-            t.GetProperty("Title")!.SetValue(unit, d.Title);
-            t.GetProperty("Description")!.SetValue(unit, d.Description);
-            t.GetProperty("DisplayOrder")!.SetValue(unit, d.DisplayOrder);
-            t.GetProperty("IsActive")!.SetValue(unit, d.IsActive);
-            return unit;
+                _logger.LogDebug("Updating unit {UnitId}", unit.Id);
+                await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.SubjectId), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to update unit {UnitId}", unit.Id);
+                throw new InvalidOperationException("Failed to update unit.", ex);
+            }
         }
     }
 }

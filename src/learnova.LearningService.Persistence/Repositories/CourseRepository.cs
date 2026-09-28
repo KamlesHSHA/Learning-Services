@@ -14,26 +14,28 @@ namespace learnova.LearningService.Persistence.Repositories
     public class CourseRepository : ICourseRepository
     {
         private readonly Container _container;
+        private readonly Microsoft.Extensions.Logging.ILogger<CourseRepository> _logger;
 
-        public CourseRepository(CosmosClient client, string databaseName)
+        public CourseRepository(CosmosClient client, string databaseName, Microsoft.Extensions.Logging.ILogger<CourseRepository> logger)
         {
             _container = client.GetContainer(databaseName, CosmosContainerNames.Courses);
+            _logger = logger;
         }
 
         public async Task AddAsync(Course course, CancellationToken cancellationToken = default)
         {
-            var doc = new CourseDocument
-            {
-                id = course.Id.ToString(),
-                Title = course.Title,
-                Description = course.Description,
-                Slug = course.Slug,
-                IsPublished = course.IsPublished,
-                CreatedAt = course.CreatedAt,
-                UpdatedAt = course.UpdatedAt
-            };
+            var doc = CourseMapper.MapToDocument(course);
 
-            await _container.CreateItemAsync(doc, new PartitionKey(doc.id), cancellationToken: cancellationToken);
+            try
+            {
+                _logger.LogDebug("Creating course {CourseId}", course.Id);
+                await _container.CreateItemAsync(doc, new PartitionKey(doc.id), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to create course {CourseId}", course.Id);
+                throw new InvalidOperationException("Failed to create course.", ex);
+            }
         }
 
         public async Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -42,11 +44,17 @@ namespace learnova.LearningService.Persistence.Repositories
             {
                 var response = await _container.ReadItemAsync<CourseDocument>(id.ToString(), new PartitionKey(id.ToString()), cancellationToken: cancellationToken);
                 var d = response.Resource;
-                return MapToDomain(d);
+                return CourseMapper.MapToDomain(d);
             }
-            catch (CosmosException ex) when (ex.Status == 404)
+            catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
+                _logger.LogInformation("Course {CourseId} not found.", id);
                 return null;
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to read course {CourseId}", id);
+                throw new InvalidOperationException("Failed to read course.", ex);
             }
         }
 
@@ -54,44 +62,37 @@ namespace learnova.LearningService.Persistence.Repositories
         {
             var query = _container.GetItemQueryIterator<CourseDocument>("SELECT * FROM c");
             var results = new List<CourseDocument>();
-            while (query.HasMoreResults)
+            try
             {
-                var r = await query.ReadNextAsync(cancellationToken);
-                results.AddRange(r.Resource);
+                while (query.HasMoreResults)
+                {
+                    var r = await query.ReadNextAsync(cancellationToken);
+                    results.AddRange(r.Resource);
+                }
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to query courses.");
+                throw new InvalidOperationException("Failed to query courses.", ex);
             }
 
-            return results.Select(MapToDomain);
+            return results.Select(CourseMapper.MapToDomain);
         }
 
         public async Task UpdateAsync(Course course, CancellationToken cancellationToken = default)
         {
-            var doc = new CourseDocument
+            var doc = CourseMapper.MapToDocument(course);
+
+            try
             {
-                id = course.Id.ToString(),
-                Title = course.Title,
-                Description = course.Description,
-                Slug = course.Slug,
-                IsPublished = course.IsPublished,
-                CreatedAt = course.CreatedAt,
-                UpdatedAt = course.UpdatedAt
-            };
-
-            await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.id), cancellationToken: cancellationToken);
-        }
-
-        private static Course MapToDomain(CourseDocument d)
-        {
-            var course = (Course)Activator.CreateInstance(typeof(Course), true)!;
-            // set private properties via reflection
-            var t = typeof(Course);
-            t.GetProperty("Id")!.SetValue(course, Guid.Parse(d.id));
-            t.GetProperty("Title")!.SetValue(course, d.Title);
-            t.GetProperty("Description")!.SetValue(course, d.Description);
-            t.GetProperty("Slug")!.SetValue(course, d.Slug);
-            t.GetProperty("IsPublished")!.SetValue(course, d.IsPublished);
-            t.GetProperty("CreatedAt")!.SetValue(course, d.CreatedAt);
-            t.GetProperty("UpdatedAt")!.SetValue(course, d.UpdatedAt);
-            return course;
+                _logger.LogDebug("Updating course {CourseId}", course.Id);
+                await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.id), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to update course {CourseId}", course.Id);
+                throw new InvalidOperationException("Failed to update course.", ex);
+            }
         }
     }
 }

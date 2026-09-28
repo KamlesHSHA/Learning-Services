@@ -31,12 +31,12 @@ namespace learnova.LearningService.Persistence.DependencyInjection
             EnsureDatabaseAndContainersAsync(cosmosClient, settings.DatabaseName).GetAwaiter().GetResult();
 
             // Register repositories (scoped)
-            services.AddScoped<ICourseRepository>(_ => new CourseRepository(cosmosClient, settings.DatabaseName));
-            services.AddScoped<ISubjectRepository>(_ => new SubjectRepository(cosmosClient, settings.DatabaseName));
-            services.AddScoped<IUnitRepository>(_ => new UnitRepository(cosmosClient, settings.DatabaseName));
-            services.AddScoped<ITopicRepository>(_ => new TopicRepository(cosmosClient, settings.DatabaseName));
-            services.AddScoped<ILearningResourceRepository>(_ => new LearningResourceRepository(cosmosClient, settings.DatabaseName));
-            services.AddScoped<IProgressRepository>(_ => new ProgressRepository(cosmosClient, settings.DatabaseName));
+            services.AddScoped<ICourseRepository>(sp => new CourseRepository(cosmosClient, settings.DatabaseName, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CourseRepository>>()));
+            services.AddScoped<ISubjectRepository>(sp => new SubjectRepository(cosmosClient, settings.DatabaseName, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<SubjectRepository>>()));
+            services.AddScoped<IUnitRepository>(sp => new UnitRepository(cosmosClient, settings.DatabaseName, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<UnitRepository>>()));
+            services.AddScoped<ITopicRepository>(sp => new TopicRepository(cosmosClient, settings.DatabaseName, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<TopicRepository>>()));
+            services.AddScoped<ILearningResourceRepository>(sp => new LearningResourceRepository(cosmosClient, settings.DatabaseName, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LearningResourceRepository>>()));
+            services.AddScoped<IProgressRepository>(sp => new ProgressRepository(cosmosClient, settings.DatabaseName, sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ProgressRepository>>()));
 
             return services;
         }

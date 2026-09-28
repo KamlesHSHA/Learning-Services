@@ -14,79 +14,86 @@ namespace learnova.LearningService.Persistence.Repositories
     public class SubjectRepository : ISubjectRepository
     {
         private readonly Container _container;
+        private readonly Microsoft.Extensions.Logging.ILogger<SubjectRepository> _logger;
 
-        public SubjectRepository(CosmosClient client, string databaseName)
+        public SubjectRepository(CosmosClient client, string databaseName, Microsoft.Extensions.Logging.ILogger<SubjectRepository> logger)
         {
             _container = client.GetContainer(databaseName, CosmosContainerNames.Subjects);
+            _logger = logger;
         }
 
         public async Task AddAsync(Subject subject, CancellationToken cancellationToken = default)
         {
-            var doc = new SubjectDocument
-            {
-                id = subject.Id.ToString(),
-                CourseId = subject.CourseId.ToString(),
-                Name = subject.Name,
-                Description = subject.Description,
-                DisplayOrder = subject.DisplayOrder,
-                IsActive = subject.IsActive
-            };
+            var doc = SubjectMapper.MapToDocument(subject);
 
-            await _container.CreateItemAsync(doc, new PartitionKey(doc.CourseId), cancellationToken: cancellationToken);
+            try
+            {
+                _logger.LogDebug("Creating subject {SubjectId}", subject.Id);
+                await _container.CreateItemAsync(doc, new PartitionKey(doc.CourseId), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to create subject {SubjectId}", subject.Id);
+                throw new InvalidOperationException("Failed to create subject.", ex);
+            }
         }
 
         public async Task<Subject?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
-            var it = _container.GetItemQueryIterator<SubjectDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
-            while (it.HasMoreResults)
+            try
             {
-                var r = await it.ReadNextAsync(cancellationToken);
-                var doc = r.Resource.FirstOrDefault();
-                if (doc != null) return MapToDomain(doc);
+                var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
+                var it = _container.GetItemQueryIterator<SubjectDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
+                while (it.HasMoreResults)
+                {
+                    var r = await it.ReadNextAsync(cancellationToken);
+                    var doc = r.Resource.FirstOrDefault();
+                    if (doc != null) return SubjectMapper.MapToDomain(doc);
+                }
+                return null;
             }
-            return null;
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to get subject {SubjectId}", id);
+                throw new InvalidOperationException("Failed to get subject.", ex);
+            }
         }
 
         public async Task<IEnumerable<Subject>> GetByCourseIdAsync(Guid courseId, CancellationToken cancellationToken = default)
         {
-            var pk = new PartitionKey(courseId.ToString());
-            var query = _container.GetItemQueryIterator<SubjectDocument>(new QueryDefinition("SELECT * FROM c"), requestOptions: new QueryRequestOptions { PartitionKey = pk });
-            var results = new List<SubjectDocument>();
-            while (query.HasMoreResults)
+            try
             {
-                var r = await query.ReadNextAsync(cancellationToken);
-                results.AddRange(r.Resource);
+                var pk = new PartitionKey(courseId.ToString());
+                var query = _container.GetItemQueryIterator<SubjectDocument>(new QueryDefinition("SELECT * FROM c"), requestOptions: new QueryRequestOptions { PartitionKey = pk });
+                var results = new List<SubjectDocument>();
+                while (query.HasMoreResults)
+                {
+                    var r = await query.ReadNextAsync(cancellationToken);
+                    results.AddRange(r.Resource);
+                }
+                return results.Select(SubjectMapper.MapToDomain);
             }
-            return results.Select(MapToDomain);
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to query subjects for course {CourseId}", courseId);
+                throw new InvalidOperationException("Failed to query subjects.", ex);
+            }
         }
 
         public async Task UpdateAsync(Subject subject, CancellationToken cancellationToken = default)
         {
-            var doc = new SubjectDocument
+            var doc = SubjectMapper.MapToDocument(subject);
+
+            try
             {
-                id = subject.Id.ToString(),
-                CourseId = subject.CourseId.ToString(),
-                Name = subject.Name,
-                Description = subject.Description,
-                DisplayOrder = subject.DisplayOrder,
-                IsActive = subject.IsActive
-            };
-
-            await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.CourseId), cancellationToken: cancellationToken);
-        }
-
-        private static Subject MapToDomain(SubjectDocument d)
-        {
-            var subj = (Subject)Activator.CreateInstance(typeof(Subject), true)!;
-            var t = typeof(Subject);
-            t.GetProperty("Id")!.SetValue(subj, Guid.Parse(d.id));
-            t.GetProperty("CourseId")!.SetValue(subj, Guid.Parse(d.CourseId));
-            t.GetProperty("Name")!.SetValue(subj, d.Name);
-            t.GetProperty("Description")!.SetValue(subj, d.Description);
-            t.GetProperty("DisplayOrder")!.SetValue(subj, d.DisplayOrder);
-            t.GetProperty("IsActive")!.SetValue(subj, d.IsActive);
-            return subj;
+                _logger.LogDebug("Updating subject {SubjectId}", subject.Id);
+                await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.CourseId), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to update subject {SubjectId}", subject.Id);
+                throw new InvalidOperationException("Failed to update subject.", ex);
+            }
         }
     }
 }

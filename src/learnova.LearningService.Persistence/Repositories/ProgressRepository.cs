@@ -14,94 +14,84 @@ namespace learnova.LearningService.Persistence.Repositories
     public class ProgressRepository : IProgressRepository
     {
         private readonly Container _container;
+        private readonly Microsoft.Extensions.Logging.ILogger<ProgressRepository> _logger;
 
-        public ProgressRepository(CosmosClient client, string databaseName)
+        public ProgressRepository(CosmosClient client, string databaseName, Microsoft.Extensions.Logging.ILogger<ProgressRepository> logger)
         {
             _container = client.GetContainer(databaseName, CosmosContainerNames.Progress);
+            _logger = logger;
         }
 
         public async Task AddAsync(Progress progress, CancellationToken cancellationToken = default)
         {
-            var doc = new ProgressDocument
+            var doc = ProgressMapper.MapToDocument(progress);
+            try
             {
-                id = progress.Id.ToString(),
-                UserId = progress.UserId,
-                CourseId = progress.CourseId?.ToString(),
-                SubjectId = progress.SubjectId?.ToString(),
-                UnitId = progress.UnitId?.ToString(),
-                TopicId = progress.TopicId?.ToString(),
-                ResourceId = progress.ResourceId?.ToString(),
-                CompletionPercentage = progress.CompletionPercentage,
-                IsCompleted = progress.IsCompleted,
-                LastAccessedAt = progress.LastAccessedAt,
-                CompletedAt = progress.CompletedAt
-            };
-
-            await _container.CreateItemAsync(doc, new PartitionKey(doc.UserId), cancellationToken: cancellationToken);
+                _logger.LogDebug("Creating progress {ProgressId} for user {UserId}", progress.Id, progress.UserId);
+                await _container.CreateItemAsync(doc, new PartitionKey(doc.UserId), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to create progress {ProgressId}", progress.Id);
+                throw new InvalidOperationException("Failed to create progress.", ex);
+            }
         }
 
         public async Task<Progress?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
-            var it = _container.GetItemQueryIterator<ProgressDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
-            while (it.HasMoreResults)
+            try
             {
-                var r = await it.ReadNextAsync(cancellationToken);
-                var doc = r.Resource.FirstOrDefault();
-                if (doc != null) return MapToDomain(doc);
+                var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
+                var it = _container.GetItemQueryIterator<ProgressDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
+                while (it.HasMoreResults)
+                {
+                    var r = await it.ReadNextAsync(cancellationToken);
+                    var doc = r.Resource.FirstOrDefault();
+                    if (doc != null) return ProgressMapper.MapToDomain(doc);
+                }
+                return null;
             }
-            return null;
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to get progress {ProgressId}", id);
+                throw new InvalidOperationException("Failed to get progress.", ex);
+            }
         }
 
         public async Task<IEnumerable<Progress>> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default)
         {
-            var pk = new PartitionKey(userId);
-            var query = _container.GetItemQueryIterator<ProgressDocument>(new QueryDefinition("SELECT * FROM c"), requestOptions: new QueryRequestOptions { PartitionKey = pk });
-            var results = new List<ProgressDocument>();
-            while (query.HasMoreResults)
+            try
             {
-                var r = await query.ReadNextAsync(cancellationToken);
-                results.AddRange(r.Resource);
+                var pk = new PartitionKey(userId);
+                var query = _container.GetItemQueryIterator<ProgressDocument>(new QueryDefinition("SELECT * FROM c"), requestOptions: new QueryRequestOptions { PartitionKey = pk });
+                var results = new List<ProgressDocument>();
+                while (query.HasMoreResults)
+                {
+                    var r = await query.ReadNextAsync(cancellationToken);
+                    results.AddRange(r.Resource);
+                }
+                return results.Select(ProgressMapper.MapToDomain);
             }
-            return results.Select(MapToDomain);
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to query progress for user {UserId}", userId);
+                throw new InvalidOperationException("Failed to query progress.", ex);
+            }
         }
 
         public async Task UpdateAsync(Progress progress, CancellationToken cancellationToken = default)
         {
-            var doc = new ProgressDocument
+            var doc = ProgressMapper.MapToDocument(progress);
+            try
             {
-                id = progress.Id.ToString(),
-                UserId = progress.UserId,
-                CourseId = progress.CourseId?.ToString(),
-                SubjectId = progress.SubjectId?.ToString(),
-                UnitId = progress.UnitId?.ToString(),
-                TopicId = progress.TopicId?.ToString(),
-                ResourceId = progress.ResourceId?.ToString(),
-                CompletionPercentage = progress.CompletionPercentage,
-                IsCompleted = progress.IsCompleted,
-                LastAccessedAt = progress.LastAccessedAt,
-                CompletedAt = progress.CompletedAt
-            };
-
-            await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.UserId), cancellationToken: cancellationToken);
-        }
-
-        private static Progress MapToDomain(ProgressDocument d)
-        {
-            var progress = (Progress)Activator.CreateInstance(typeof(Progress), true)!;
-            var t = typeof(Progress);
-            t.GetProperty("Id")!.SetValue(progress, Guid.Parse(d.id));
-            t.GetProperty("UserId")!.SetValue(progress, d.UserId);
-            t.GetProperty("CourseId")!.SetValue(progress, string.IsNullOrEmpty(d.CourseId) ? null : Guid.Parse(d.CourseId));
-            t.GetProperty("SubjectId")!.SetValue(progress, string.IsNullOrEmpty(d.SubjectId) ? null : Guid.Parse(d.SubjectId));
-            t.GetProperty("UnitId")!.SetValue(progress, string.IsNullOrEmpty(d.UnitId) ? null : Guid.Parse(d.UnitId));
-            t.GetProperty("TopicId")!.SetValue(progress, string.IsNullOrEmpty(d.TopicId) ? null : Guid.Parse(d.TopicId));
-            t.GetProperty("ResourceId")!.SetValue(progress, string.IsNullOrEmpty(d.ResourceId) ? null : Guid.Parse(d.ResourceId));
-            t.GetProperty("CompletionPercentage")!.SetValue(progress, d.CompletionPercentage);
-            t.GetProperty("IsCompleted")!.SetValue(progress, d.IsCompleted);
-            t.GetProperty("LastAccessedAt")!.SetValue(progress, d.LastAccessedAt);
-            t.GetProperty("CompletedAt")!.SetValue(progress, d.CompletedAt);
-            return progress;
+                _logger.LogDebug("Updating progress {ProgressId} for user {UserId}", progress.Id, progress.UserId);
+                await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.UserId), cancellationToken: cancellationToken);
+            }
+            catch (CosmosException ex)
+            {
+                _logger.LogError(ex, "Failed to update progress {ProgressId}", progress.Id);
+                throw new InvalidOperationException("Failed to update progress.", ex);
+            }
         }
     }
 }
