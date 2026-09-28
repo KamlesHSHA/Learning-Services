@@ -7,4 +7,12 @@
     <RootNamespace>E_Learning_Platform</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Include="src\learnova.LearningService.Application\learnova.LearningService.Application.csproj" />
+    <None Include="src\learnova.LearningService.Domain\learnova.LearningService.Domain.csproj" />
+    <None Include="src\learnova.LearningService.Infrastructure\learnova.LearningService.Infrastructure.csproj" />
+    <None Include="src\learnova.LearningService.Persistence\learnova.LearningService.Persistence.csproj" />
+    <None Include="src\learnova.LearningService\learnova.LearningService.csproj" />
+  </ItemGroup>
+
 </Project>
