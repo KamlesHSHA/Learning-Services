@@ -34,6 +34,23 @@ namespace learnova.LearningService.Domain.Entities
             IsPublished = false;
         }
 
+        // Persistence factory for reconstructing LearningResource
+        internal static LearningResource Rehydrate(Guid id, Guid topicId, string title, string? description, ResourceType resourceType, string resourceUri, int displayOrder, bool isPublished)
+        {
+            var lr = new LearningResource()
+            {
+                Id = id,
+                TopicId = topicId,
+                Title = title,
+                Description = description,
+                ResourceType = resourceType,
+                ResourceUri = resourceUri,
+                DisplayOrder = displayOrder,
+                IsPublished = isPublished
+            };
+            return lr;
+        }
+
         public void Update(string title, string? description, string resourceUri, ResourceType resourceType, int displayOrder)
         {
             if (string.IsNullOrWhiteSpace(title))

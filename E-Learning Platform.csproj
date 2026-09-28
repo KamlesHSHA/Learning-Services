@@ -21,9 +21,19 @@
     <EmbeddedResource Remove="src\**\*" />
     <None Remove="src\**\*" />
     <Content Remove="src\**\*" />
+    <!-- Also exclude tests so the root web project does not implicitly compile test sources -->
+    <Compile Remove="tests\**\*.cs" />
+    <EmbeddedResource Remove="tests\**\*" />
+    <None Remove="tests\**\*" />
+    <Content Remove="tests\**\*" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Mapper files removed from root project; they are compiled by Persistence project csproj -->
+    <Compile Include="src\learnova.LearningService.Domain\Properties\AssemblyInfo.cs" />
+    <Compile Include="src\learnova.LearningService.Persistence\Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup><!-- Mapper files removed from root project; they are compiled by Persistence project csproj -->
+    <None Include="src\learnova.LearningService.Persistence\README.md" />
+    <!-- Test project removed from root None items to avoid duplicate inclusion when it's added to the solution -->
   </ItemGroup>
 
 </Project>

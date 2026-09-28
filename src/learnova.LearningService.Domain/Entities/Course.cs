@@ -31,6 +31,18 @@ namespace learnova.LearningService.Domain.Entities
             CreatedAt = DateTime.UtcNow;
         }
 
+        // Persistence factory for reconstructing from storage. Internal to prevent public misuse.
+        internal static Course Rehydrate(Guid id, string title, string? description, string slug, bool isPublished, DateTime createdAt, DateTime? updatedAt)
+        {
+            var c = new Course(id, title, description, slug)
+            {
+                IsPublished = isPublished,
+                CreatedAt = createdAt,
+                UpdatedAt = updatedAt
+            };
+            return c;
+        }
+
         public static Course Create(string title, string? description, string? slug = null)
         {
             if (string.IsNullOrWhiteSpace(title))

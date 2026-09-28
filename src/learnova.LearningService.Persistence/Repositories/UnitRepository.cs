@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
+using learnova.LearningService.Persistence.Mappers;
 using learnova.LearningService.Application.Interfaces;
 using learnova.LearningService.Domain.Entities;
 using learnova.LearningService.Persistence.Constants;
@@ -39,8 +41,32 @@ namespace learnova.LearningService.Persistence.Repositories
 
         public async Task<Unit?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
+            return await GetByIdAsync(id, partitionKey: null, cancellationToken: cancellationToken);
+        }
+
+        public async Task<Unit?> GetByIdAsync(Guid id, Guid subjectId, CancellationToken cancellationToken = default)
+        {
+            return await GetByIdAsync(id, partitionKey: subjectId.ToString(), cancellationToken: cancellationToken);
+        }
+
+        private async Task<Unit?> GetByIdAsync(Guid id, string? partitionKey, CancellationToken cancellationToken = default)
+        {
             try
             {
+                if (!string.IsNullOrEmpty(partitionKey))
+                {
+                    try
+                    {
+                        var pk = new PartitionKey(partitionKey);
+                        var resp = await _container.ReadItemAsync<UnitDocument>(id.ToString(), pk, cancellationToken: cancellationToken);
+                        return UnitMapper.MapToDomain(resp.Resource);
+                    }
+                    catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        return null;
+                    }
+                }
+
                 var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
                 var it = _container.GetItemQueryIterator<UnitDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
                 while (it.HasMoreResults)

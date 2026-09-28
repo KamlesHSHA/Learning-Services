@@ -1,10 +1,13 @@
 using System;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.Azure.Cosmos;
 using learnova.LearningService.Persistence.Configuration;
 using learnova.LearningService.Persistence.Repositories;
+using learnova.LearningService.Application.Interfaces;
+using learnova.LearningService.Persistence.Constants;
 
 namespace learnova.LearningService.Persistence.DependencyInjection
 {

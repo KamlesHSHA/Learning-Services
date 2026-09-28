@@ -1,3 +1,11 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/learnova.LearningService.Application/learnova.LearningService.Application.csproj" />
+    <Project Path="src/learnova.LearningService.Domain/learnova.LearningService.Domain.csproj" />
+    <Project Path="src/learnova.LearningService.Persistence/learnova.LearningService.Persistence.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/learnova.LearningService.Persistence.Tests/learnova.LearningService.Persistence.Tests.csproj" />
+  </Folder>
   <Project Path="E-Learning Platform.csproj" />
 </Solution>

@@ -10,6 +10,8 @@ namespace learnova.LearningService.Application.Interfaces
     {
         Task AddAsync(Unit unit, CancellationToken cancellationToken = default);
         Task<Unit?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+        // Partition-key aware overload — when subjectId is known, callers may use this to enable point reads.
+        Task<Unit?> GetByIdAsync(Guid id, Guid subjectId, CancellationToken cancellationToken = default);
         Task<IEnumerable<Unit>> GetBySubjectIdAsync(Guid subjectId, CancellationToken cancellationToken = default);
         Task UpdateAsync(Unit unit, CancellationToken cancellationToken = default);
     }

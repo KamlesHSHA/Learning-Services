@@ -33,6 +33,21 @@ namespace learnova.LearningService.Domain.Entities
             IsActive = true;
         }
 
+        // Persistence factory for reconstructing Unit
+        internal static Unit Rehydrate(Guid id, Guid subjectId, string title, string? description, int displayOrder, bool isActive)
+        {
+            var u = new Unit()
+            {
+                Id = id,
+                SubjectId = subjectId,
+                Title = title,
+                Description = description,
+                DisplayOrder = displayOrder,
+                IsActive = isActive
+            };
+            return u;
+        }
+
         public void Update(string title, string? description, int displayOrder)
         {
             if (string.IsNullOrWhiteSpace(title))

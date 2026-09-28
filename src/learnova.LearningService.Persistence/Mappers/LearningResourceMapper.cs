@@ -8,17 +8,16 @@ namespace learnova.LearningService.Persistence.Mappers
     {
         public static LearningResource MapToDomain(LearningResourceDocument d)
         {
-            var resource = (LearningResource)Activator.CreateInstance(typeof(LearningResource), true)!;
-            var t = typeof(LearningResource);
-            t.GetProperty("Id")!.SetValue(resource, Guid.Parse(d.id));
-            t.GetProperty("TopicId")!.SetValue(resource, Guid.Parse(d.TopicId));
-            t.GetProperty("Title")!.SetValue(resource, d.Title);
-            t.GetProperty("Description")!.SetValue(resource, d.Description);
-            t.GetProperty("ResourceType")!.SetValue(resource, d.ResourceType);
-            t.GetProperty("ResourceUri")!.SetValue(resource, d.ResourceUri);
-            t.GetProperty("DisplayOrder")!.SetValue(resource, d.DisplayOrder);
-            t.GetProperty("IsPublished")!.SetValue(resource, d.IsPublished);
-            return resource;
+            return LearningResource.Rehydrate(
+                Guid.Parse(d.id),
+                Guid.Parse(d.TopicId),
+                d.Title,
+                d.Description,
+                d.ResourceType,
+                d.ResourceUri,
+                d.DisplayOrder,
+                d.IsPublished
+            );
         }
 
         public static LearningResourceDocument MapToDocument(LearningResource domain)

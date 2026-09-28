@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
+using learnova.LearningService.Persistence.Mappers;
 using learnova.LearningService.Application.Interfaces;
 using learnova.LearningService.Domain.Entities;
 using learnova.LearningService.Persistence.Constants;
@@ -27,20 +29,44 @@ namespace learnova.LearningService.Persistence.Repositories
             var doc = LearningResourceMapper.MapToDocument(resource);
             try
             {
-                _logger.LogDebug("Creating learning resource {ResourceId}", resource.Id);
+                _logger?.LogDebug("Creating learning resource {ResourceId}", resource.Id);
                 await _container.CreateItemAsync(doc, new PartitionKey(doc.TopicId), cancellationToken: cancellationToken);
             }
             catch (CosmosException ex)
             {
-                _logger.LogError(ex, "Failed to create learning resource {ResourceId}", resource.Id);
+                _logger?.LogError(ex, "Failed to create learning resource {ResourceId}", resource.Id);
                 throw new InvalidOperationException("Failed to create learning resource.", ex);
             }
         }
 
         public async Task<LearningResource?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
+            return await GetByIdAsync(id, partitionTopicId: null, cancellationToken: cancellationToken);
+        }
+
+        public async Task<LearningResource?> GetByIdAsync(Guid id, Guid topicId, CancellationToken cancellationToken = default)
+        {
+            return await GetByIdAsync(id, partitionTopicId: topicId.ToString(), cancellationToken: cancellationToken);
+        }
+
+        private async Task<LearningResource?> GetByIdAsync(Guid id, string? partitionTopicId, CancellationToken cancellationToken = default)
+        {
             try
             {
+                if (!string.IsNullOrEmpty(partitionTopicId))
+                {
+                    try
+                    {
+                        var pk = new PartitionKey(partitionTopicId);
+                        var resp = await _container.ReadItemAsync<LearningResourceDocument>(id.ToString(), pk, cancellationToken: cancellationToken);
+                        return LearningResourceMapper.MapToDomain(resp.Resource);
+                    }
+                    catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        return null;
+                    }
+                }
+
                 var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
                 var it = _container.GetItemQueryIterator<LearningResourceDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
                 while (it.HasMoreResults)
@@ -53,7 +79,7 @@ namespace learnova.LearningService.Persistence.Repositories
             }
             catch (CosmosException ex)
             {
-                _logger.LogError(ex, "Failed to get learning resource {ResourceId}", id);
+                _logger?.LogError(ex, "Failed to get learning resource {ResourceId}", id);
                 throw new InvalidOperationException("Failed to get learning resource.", ex);
             }
         }
@@ -74,7 +100,7 @@ namespace learnova.LearningService.Persistence.Repositories
             }
             catch (CosmosException ex)
             {
-                _logger.LogError(ex, "Failed to query resources for topic {TopicId}", topicId);
+                _logger?.LogError(ex, "Failed to query resources for topic {TopicId}", topicId);
                 throw new InvalidOperationException("Failed to query resources.", ex);
             }
         }
@@ -84,12 +110,12 @@ namespace learnova.LearningService.Persistence.Repositories
             var doc = LearningResourceMapper.MapToDocument(resource);
             try
             {
-                _logger.LogDebug("Updating learning resource {ResourceId}", resource.Id);
+                _logger?.LogDebug("Updating learning resource {ResourceId}", resource.Id);
                 await _container.ReplaceItemAsync(doc, doc.id, new PartitionKey(doc.TopicId), cancellationToken: cancellationToken);
             }
             catch (CosmosException ex)
             {
-                _logger.LogError(ex, "Failed to update learning resource {ResourceId}", resource.Id);
+                _logger?.LogError(ex, "Failed to update learning resource {ResourceId}", resource.Id);
                 throw new InvalidOperationException("Failed to update learning resource.", ex);
             }
         }

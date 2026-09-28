@@ -33,6 +33,21 @@ namespace learnova.LearningService.Domain.Entities
             IsActive = true;
         }
 
+        // Persistence factory for reconstructing Subject
+        internal static Subject Rehydrate(Guid id, Guid courseId, string name, string? description, int displayOrder, bool isActive)
+        {
+            var s = new Subject()
+            {
+                Id = id,
+                CourseId = courseId,
+                Name = name,
+                Description = description,
+                DisplayOrder = displayOrder,
+                IsActive = isActive
+            };
+            return s;
+        }
+
         public void Update(string name, string? description, int displayOrder)
         {
             if (string.IsNullOrWhiteSpace(name))

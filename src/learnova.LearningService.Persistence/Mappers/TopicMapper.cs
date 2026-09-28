@@ -8,15 +8,14 @@ namespace learnova.LearningService.Persistence.Mappers
     {
         public static Topic MapToDomain(TopicDocument d)
         {
-            var topic = (Topic)Activator.CreateInstance(typeof(Topic), true)!;
-            var t = typeof(Topic);
-            t.GetProperty("Id")!.SetValue(topic, Guid.Parse(d.id));
-            t.GetProperty("UnitId")!.SetValue(topic, Guid.Parse(d.UnitId));
-            t.GetProperty("Title")!.SetValue(topic, d.Title);
-            t.GetProperty("Description")!.SetValue(topic, d.Description);
-            t.GetProperty("DisplayOrder")!.SetValue(topic, d.DisplayOrder);
-            t.GetProperty("IsActive")!.SetValue(topic, d.IsActive);
-            return topic;
+            return Topic.Rehydrate(
+                Guid.Parse(d.id),
+                Guid.Parse(d.UnitId),
+                d.Title,
+                d.Description,
+                d.DisplayOrder,
+                d.IsActive
+            );
         }
 
         public static TopicDocument MapToDocument(Topic domain)

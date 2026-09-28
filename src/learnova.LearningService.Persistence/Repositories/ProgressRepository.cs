@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
+using learnova.LearningService.Persistence.Mappers;
 using learnova.LearningService.Application.Interfaces;
 using learnova.LearningService.Domain.Entities;
 using learnova.LearningService.Persistence.Constants;
@@ -14,7 +16,7 @@ namespace learnova.LearningService.Persistence.Repositories
     public class ProgressRepository : IProgressRepository
     {
         private readonly Container _container;
-        private readonly Microsoft.Extensions.Logging.ILogger<ProgressRepository> _logger;
+        private readonly ILogger<ProgressRepository> _logger;
 
         public ProgressRepository(CosmosClient client, string databaseName, Microsoft.Extensions.Logging.ILogger<ProgressRepository> logger)
         {
@@ -39,8 +41,27 @@ namespace learnova.LearningService.Persistence.Repositories
 
         public async Task<Progress?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
+            return await GetByIdAsync(id, userId: null, cancellationToken: cancellationToken);
+        }
+
+        public async Task<Progress?> GetByIdAsync(Guid id, string userId, CancellationToken cancellationToken = default)
+        {
             try
             {
+                if (!string.IsNullOrEmpty(userId))
+                {
+                    try
+                    {
+                        var pk = new PartitionKey(userId);
+                        var resp = await _container.ReadItemAsync<ProgressDocument>(id.ToString(), pk, cancellationToken: cancellationToken);
+                        return ProgressMapper.MapToDomain(resp.Resource);
+                    }
+                    catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        return null;
+                    }
+                }
+
                 var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
                 var it = _container.GetItemQueryIterator<ProgressDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
                 while (it.HasMoreResults)

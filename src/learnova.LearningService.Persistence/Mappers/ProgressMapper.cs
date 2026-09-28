@@ -8,20 +8,19 @@ namespace learnova.LearningService.Persistence.Mappers
     {
         public static Progress MapToDomain(ProgressDocument d)
         {
-            var progress = (Progress)Activator.CreateInstance(typeof(Progress), true)!;
-            var t = typeof(Progress);
-            t.GetProperty("Id")!.SetValue(progress, Guid.Parse(d.id));
-            t.GetProperty("UserId")!.SetValue(progress, d.UserId);
-            t.GetProperty("CourseId")!.SetValue(progress, string.IsNullOrEmpty(d.CourseId) ? null : Guid.Parse(d.CourseId));
-            t.GetProperty("SubjectId")!.SetValue(progress, string.IsNullOrEmpty(d.SubjectId) ? null : Guid.Parse(d.SubjectId));
-            t.GetProperty("UnitId")!.SetValue(progress, string.IsNullOrEmpty(d.UnitId) ? null : Guid.Parse(d.UnitId));
-            t.GetProperty("TopicId")!.SetValue(progress, string.IsNullOrEmpty(d.TopicId) ? null : Guid.Parse(d.TopicId));
-            t.GetProperty("ResourceId")!.SetValue(progress, string.IsNullOrEmpty(d.ResourceId) ? null : Guid.Parse(d.ResourceId));
-            t.GetProperty("CompletionPercentage")!.SetValue(progress, d.CompletionPercentage);
-            t.GetProperty("IsCompleted")!.SetValue(progress, d.IsCompleted);
-            t.GetProperty("LastAccessedAt")!.SetValue(progress, d.LastAccessedAt);
-            t.GetProperty("CompletedAt")!.SetValue(progress, d.CompletedAt);
-            return progress;
+            return Progress.Rehydrate(
+                Guid.Parse(d.id),
+                d.UserId,
+                string.IsNullOrEmpty(d.CourseId) ? (Guid?)null : Guid.Parse(d.CourseId),
+                string.IsNullOrEmpty(d.SubjectId) ? (Guid?)null : Guid.Parse(d.SubjectId),
+                string.IsNullOrEmpty(d.UnitId) ? (Guid?)null : Guid.Parse(d.UnitId),
+                string.IsNullOrEmpty(d.TopicId) ? (Guid?)null : Guid.Parse(d.TopicId),
+                string.IsNullOrEmpty(d.ResourceId) ? (Guid?)null : Guid.Parse(d.ResourceId),
+                d.CompletionPercentage,
+                d.IsCompleted,
+                d.LastAccessedAt,
+                d.CompletedAt
+            );
         }
 
         public static ProgressDocument MapToDocument(Progress domain)

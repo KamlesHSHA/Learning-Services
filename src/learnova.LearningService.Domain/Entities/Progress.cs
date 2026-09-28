@@ -35,6 +35,26 @@ namespace learnova.LearningService.Domain.Entities
             IsCompleted = false;
         }
 
+        // Persistence factory for reconstructing Progress
+        internal static Progress Rehydrate(Guid id, string userId, Guid? courseId, Guid? subjectId, Guid? unitId, Guid? topicId, Guid? resourceId, double completionPercentage, bool isCompleted, DateTime? lastAccessedAt, DateTime? completedAt)
+        {
+            var p = new Progress()
+            {
+                Id = id,
+                UserId = userId,
+                CourseId = courseId,
+                SubjectId = subjectId,
+                UnitId = unitId,
+                TopicId = topicId,
+                ResourceId = resourceId,
+                CompletionPercentage = completionPercentage,
+                IsCompleted = isCompleted,
+                LastAccessedAt = lastAccessedAt,
+                CompletedAt = completedAt
+            };
+            return p;
+        }
+
         public void UpdateCompletion(double percent)
         {
             if (percent < 0 || percent > 100)

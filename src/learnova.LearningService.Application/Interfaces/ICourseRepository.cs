@@ -11,6 +11,8 @@ namespace learnova.LearningService.Application.Interfaces
     {
         Task AddAsync(Course course, CancellationToken cancellationToken = default);
         Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+        // Partition-key aware overload — when a partition key is available (not used for Courses currently), callers can use this signature. Keep for parity.
+        Task<Course?> GetByIdAsync(Guid id, string partitionKey, CancellationToken cancellationToken = default);
         Task<IEnumerable<Course>> GetAllAsync(CancellationToken cancellationToken = default);
         Task UpdateAsync(Course course, CancellationToken cancellationToken = default);
     }

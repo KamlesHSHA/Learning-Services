@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
+using learnova.LearningService.Persistence.Mappers;
 using learnova.LearningService.Application.Interfaces;
 using learnova.LearningService.Domain.Entities;
 using learnova.LearningService.Persistence.Constants;
@@ -15,6 +17,7 @@ namespace learnova.LearningService.Persistence.Repositories
     {
         private readonly Container _container;
         private readonly Microsoft.Extensions.Logging.ILogger<CourseRepository> _logger;
+        // noop: trigger file update
 
         public CourseRepository(CosmosClient client, string databaseName, Microsoft.Extensions.Logging.ILogger<CourseRepository> logger)
         {
@@ -40,15 +43,36 @@ namespace learnova.LearningService.Persistence.Repositories
 
         public async Task<Course?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
+            return await GetByIdAsync(id, partitionKey: null, cancellationToken: cancellationToken);
+        }
+
+        public async Task<Course?> GetByIdAsync(Guid id, string partitionKey, CancellationToken cancellationToken = default)
+        {
             try
             {
-                var response = await _container.ReadItemAsync<CourseDocument>(id.ToString(), new PartitionKey(id.ToString()), cancellationToken: cancellationToken);
-                var d = response.Resource;
-                return CourseMapper.MapToDomain(d);
-            }
-            catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                _logger.LogInformation("Course {CourseId} not found.", id);
+                if (!string.IsNullOrEmpty(partitionKey))
+                {
+                    try
+                    {
+                        var pk = new PartitionKey(partitionKey);
+                        var resp = await _container.ReadItemAsync<CourseDocument>(id.ToString(), pk, cancellationToken: cancellationToken);
+                        return CourseMapper.MapToDomain(resp.Resource);
+                    }
+                    catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        _logger.LogInformation("Course {CourseId} not found.", id);
+                        return null;
+                    }
+                }
+
+                var query = new QueryDefinition("SELECT * FROM c WHERE c.id = @id").WithParameter("@id", id.ToString());
+                var it = _container.GetItemQueryIterator<CourseDocument>(query, requestOptions: new QueryRequestOptions { MaxItemCount = 1 });
+                while (it.HasMoreResults)
+                {
+                    var r = await it.ReadNextAsync(cancellationToken);
+                    var doc = r.Resource.FirstOrDefault();
+                    if (doc != null) return CourseMapper.MapToDomain(doc);
+                }
                 return null;
             }
             catch (CosmosException ex)
